@@ -1,0 +1,1 @@
+clisp.exe -i eliza.lsp

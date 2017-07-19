@@ -1,1 +1,1 @@
-cmd.exe /K "cd /d E:\Libraries\Documents\GitHub\CommonLisp\AI"
+cmd.exe /K ""cd /d E:\Libraries\Documents\GitHub\CommonLisp\GPS" & "clisp""
