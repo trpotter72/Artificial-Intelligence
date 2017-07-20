@@ -1,0 +1,1 @@
+clisp -i TicTacToe.lsp
