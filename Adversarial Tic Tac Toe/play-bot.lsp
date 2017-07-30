@@ -16,4 +16,39 @@
 
 (defun give_score (x)
   "Gives an arbitrary score to a value (used for testing)"
-  (+ x 5))
+  (case x
+    ('a 5)
+    ('b 2)
+    ('f 1)
+    (otherwise 0)))
+
+(defconstant *win-lines*
+  '((0 1 2)
+    (0 3 6)
+    (0 4 8)
+    (1 4 7)
+    (2 5 8)
+    (2 4 6)
+    (3 4 5)
+    (6 7 8)))
+
+(defun board-score (brd player)
+  "Given a board, returns a score based on player positioning"
+  (let ((score 0))
+    (loop for line in *win-lines* do
+      (incf score (line-score brd player line)))))
+
+(defun line-score brd player line
+  "Given a board, it evaluates the given line for a score"
+  (let ((sample (list (nth (first line) brd)
+                      (nth (second line) brd)
+                      (nth (third line) brd))))
+    (if (member (opposite player) sample)
+      (return-from line-score 0)
+      (if (member player sample)
+        (if (member player (rest (member player sample)))
+          (if (member player (rest (member player (rest (member player sample)))))
+            (return-from line-score 999999)
+            (return-from line-score 5000))
+          (return-from line-score 1000))
+        nil))))
