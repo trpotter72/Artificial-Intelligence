@@ -36,9 +36,11 @@
   "Given a board, returns a score based on player positioning"
   (let ((score 0))
     (loop for line in *win-lines* do
-      (incf score (line-score brd player line)))))
+      (incf score (line-score brd player line))
+      (decf score (opponent-line-score brd player line)))
+    score))
 
-(defun line-score brd player line
+(defun line-score (brd player line)
   "Given a board, it evaluates the given line for a score"
   (let ((sample (list (nth (first line) brd)
                       (nth (second line) brd)
@@ -51,4 +53,21 @@
             (return-from line-score 999999)
             (return-from line-score 5000))
           (return-from line-score 1000))
-        nil))))
+        0))))
+
+(defun opponent-line-score (brd player line)
+  "Given a board, it evaluates the given line for a score"
+  (let ((sample (list (nth (first line) brd)
+                      (nth (second line) brd)
+                      (nth (third line) brd))))
+    (if (member (player) sample)
+      (return-from line-score 0)
+      (if (member (opposite player) sample)
+        (if (member (opposite player) (rest (member opposite player sample)))
+          (return-from line-score 500000)
+          (return-from line-score 1000))
+        0))))
+
+(defun opposite (player)
+  "returns the opposite player from the given"
+  (* -1 player))
