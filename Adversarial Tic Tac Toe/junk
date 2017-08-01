@@ -1,5 +1,0 @@
-if
-  member (enemy) -> return 0
-  member (player) -> return   if
-                                member (member (player)) -> 10000
-                                else -> 1000
