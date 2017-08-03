@@ -14,6 +14,7 @@
     best_item))
 
 
+<<<<<<< HEAD
 (defconstant *win-lines*
   '((0 1 2)
     (0 3 6)
@@ -63,3 +64,8 @@
 (defun opposite (player)
   "returns the opposite player from the given"
   (* -1 player))
+=======
+(defun give_score (x)
+  "Gives an arbitrary score to a value (used for testing)"
+  (+ x 5))
+>>>>>>> a2ce962f90a6346f4484b39d773a96e7e60f987c
