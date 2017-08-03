@@ -14,14 +14,6 @@
     best_item))
 
 
-(defun give_score (x)
-  "Gives an arbitrary score to a value (used for testing)"
-  (case x
-    ('a 5)
-    ('b 2)
-    ('f 1)
-    (otherwise 0)))
-
 (defconstant *win-lines*
   '((0 1 2)
     (0 3 6)
