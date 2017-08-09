@@ -1,71 +1,60 @@
-(defun get_best (func lst)
-  "Returns the best using func"
-  (let
-    ((best_val (funcall func (first lst)))
-     (best_item (first lst)))
-    (loop for item in (rest lst)
-      do
-        (if (< best_val (funcall func item))
-          (progn
-            (setf best_val (funcall func item))
-            (setf best_item item))
-          nil
-          ))
-    best_item))
+(defun minimax (board depth player)
+  "Finds the best move using eval fn and recursive calls to minimax"
+  (cond ((deep-enough board depth)
+         (list (score board player)))
+        (t
+          (let ((next-moves (possible-moves board player))
+                (best-move nil)
+                (best-score -99999))
+            (cond ((null next-moves)
+                   (list (score board player)))
+                  (t
+                    (loop for move in next-moves do
+                      (let* ((best-child (minimax move (1+ depth) (opposite player)))
+                             (new-value (- (car best-child))))
+                            (when (> new-value best-score)
+                              (setq best-score new-value)
+                              (setq best-move move))))
+                   (cons best-score best-move)))))))
 
 
-<<<<<<< HEAD
-(defconstant *win-lines*
-  '((0 1 2)
-    (0 3 6)
-    (0 4 8)
-    (1 4 7)
-    (2 5 8)
-    (2 4 6)
-    (3 4 5)
-    (6 7 8)))
 
-(defun board-score (brd player)
-  "Given a board, returns a score based on player positioning"
-  (let ((score 0))
-    (loop for line in *win-lines* do
-      (incf score (line-score brd player line))
-      (decf score (opponent-line-score brd player line)))
-    score))
 
-(defun line-score (brd player line)
-  "Given a board, it evaluates the given line for a score"
-  (let ((sample (list (nth (first line) brd)
-                      (nth (second line) brd)
-                      (nth (third line) brd))))
-    (if (member (opposite player) sample)
-      (return-from line-score 0)
-      (if (member player sample)
-        (if (member player (rest (member player sample)))
-          (if (member player (rest (member player (rest (member player sample)))))
-            (return-from line-score 999999)
-            (return-from line-score 5000))
-          (return-from line-score 1000))
-        0))))
+(defun deep-enough (pos depth)
+  (declare (ignore depth))
+  (or (win? pos 1)
+      (win? pos -1)
+      (draw? pos)))
 
-(defun opponent-line-score (brd player line)
-  "Given a board, it evaluates the given line for a score"
-  (let ((sample (list (nth (first line) brd)
-                      (nth (second line) brd)
-                      (nth (third line) brd))))
-    (if (member player sample)
-      (return-from opponent-line-score 0)
-      (if (member (opposite player) sample)
-        (if (member (opposite player) (rest (member (opposite player) sample)))
-          (return-from opponent-line-score 500000)
-          (return-from opponent-line-score 1000))
-        0))))
-
-(defun opposite (player)
-  "returns the opposite player from the given"
-  (* -1 player))
-=======
-(defun give_score (x)
-  "Gives an arbitrary score to a value (used for testing)"
-  (+ x 5))
->>>>>>> a2ce962f90a6346f4484b39d773a96e7e60f987c
+(defun play (&optional machine-first)
+  "Starts game with play-bot"
+  (let ((board *board*)
+        (next nil))
+       (when machine-first
+         (setq board (rest (minimax board 0 -1))))
+       (do  ()
+            ((or
+              (win? board 1)
+              (win? board -1)
+              (draw? board))
+             (format t "Final position: ~%")
+             (print-board board)
+             (cond
+               ((win? board -1) (format t "I win.~%"))
+               ((win? board 1) (format t "You win.~%"))
+               (t (format t "Draw.~%"))))
+            (print-board board)
+            (format t "Your move: ")
+            (let ((move (read)))
+              (loop until (setq next (mark-board board 1 move))
+                do (format t "~%~a Illegal! Try again: " move)
+                (setq move (read)))
+              (setq board next))
+            (when (and (not (draw? board))
+                       (not (win? board -1))
+                       (not (win? board 1)))
+              (print-board board)
+              (setq board (rest (minimax board 0 -1)))
+              (if (and (not (draw? board))
+                       (not (win? board -1)))
+                (format t "My move: ~%"))))))
