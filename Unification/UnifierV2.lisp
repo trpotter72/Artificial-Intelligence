@@ -1,11 +1,12 @@
 ;;*****************************************************************************
-;;  Unifier V1
+;;  Unifier V2
 ;;  Adapted and Implemented with Peter Norvig's
 ;;  Paradigms of Artificial Intelligence Programming
 ;;*****************************************************************************
 ;;
-;;Note: this is the first iteration, higher version numbers account
-;;      for more bugs, errors, and functionallity
+;;Second version attempts to fix the infinite loop possible when a binding
+;;references itself (directly or indirectly)
+;;
 
 
 (defconstant fail nil "Indicates matching failure")
@@ -46,9 +47,9 @@
 (defun unify (x y &optional (bindings no-bindings))
   "See if x and y match with the given bindings"
   (cond ((eq bindings fail) fail)
+        ((eql x y) bindings)
         ((variable-p x) (unify-variable x y bindings))
         ((variable-p y) (unify-variable y x bindings))
-        ((eql x y) bindings)
         ((and (consp x) (consp y))
          (unify (rest x) (rest y)
            (unify (first x) (first y) bindings)))
@@ -56,20 +57,25 @@
 
 (defun unify-variable (var x bindings)
   "Unify var with x, this uses and may update bindings"
-  (if (get-binding var bindings)
-      (unify (lookup var bindings) x bindings)
-      (extend-bindings var x bindings)))
+  (cond ((get-binding var bindings)
+         (unify (lookup var bindings) x bindings))
+        ((and (variable-p x) (get-binding x bindings))
+         (unify (lookup x bindings) var bindings))
+        (t (extend-bindings var x bindings))))
 
 ;;Bugs:
-;;   Cannot currently handle binding to a variable which has previously been
-;;   bound to itself.
-;;    Example:
-;;      Given (unify '(?x ?x a) '(?y ?y ?y))
-;;      one would expect the following binds:
-;;        ((?x . ?y) (?y . a))
-;;      Instead, once (?x . ?y) is created, any call to find the value
-;;      of ?x or ?y leads to an infinite loop attempting to look up a value.
 ;;
-;;    Solution:
-;;      Attempt to simplify both var and x to the simplest binding in
-;;      unify-variable before extending-bindings
+;;  One can create an infinite recursive sub-structure using
+;;
+;;    (unify '?x '(a b c ?x))
+;;
+;;  This is beacuse the binding (?x . (a b c ?x)) is created to unify this
+;;  type of structure, we would need a method to represent this infintely
+;;  recursing structure (or a LOT of memory).
+;;
+;;Solutions:
+;;
+;;  Rather than develop an actual solution to the above problem, this type of
+;;  input will be disallowed (if we need infinte structures, we can make them
+;;  later) ARE YOU READY TO LOOK AT V3?!? It's about to get awesome
+;;
