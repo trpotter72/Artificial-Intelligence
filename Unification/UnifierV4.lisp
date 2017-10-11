@@ -29,7 +29,10 @@
 
 (defmacro <- (&rest clause)
   "Add a clause to the data base."
-  '(add-clause ',clause))
+  `(add-clause ',clause))
+
+(defmacro ?- (&rest goals)
+  `(prove-all ',goals no-bindings))
 
 (defun clause-head (clause) (first clause))
 
@@ -38,12 +41,16 @@
 (defun add-clause (clause)
   "Add a clause to the db, indexed w/ clause head"
   ;;The predicate must be a non-variable symbol
-  (let ((pre (predicate (clause-head clause-head))))
+  (let ((pred (predicate (clause-head clause))))
     (assert (and (symbolp pred) (not (variable-p pred))))
     (pushnew pred *db-predicates*)
     (setf (get pred 'clauses)
-          (nconc (get-clauses pred) (list clauses)))
+          (nconc (get-clauses pred) (list clause)))
     pred))
+
+(defun get-clauses (pred) (get pred 'clauses))
+
+(defun predicate (relation) (first relation))
 
 (defun variable-p (x)
   "Is a variable (symbol beggining with '?'"
@@ -143,20 +150,42 @@
                        (prove-all (rest goals) goal1-solution))
                    (prove (first goals) bindings)))))
 
+(defun rename-variables (x)
+  "Replace all variables in x with new ones"
+  (sublis (mapcar #'(lambda (var) (cons var (gensym (string var))))
+                  (variables-in x))
+    x))
+
+(defun variables-in (exp)
+  "Return a list of variables in the expression"
+  (unique-find-anywhere-if #'variable-p exp))
+
+(defun unique-find-anywhere-if (predicate tree &optional found-so-far)
+  "Return a list of all the variables in exp"
+  (if (atom tree)
+      (if (funcall predicate tree)
+          (adjoin tree found-so-far)
+          (found-so-far)
+        (unique-find-anywhere-if
+            predicate
+            (first tree)
+            (unique-find-anywhere-if predicate (rest tree)
+                                     found-so-far)))))
 
 ;;Bugs:
+;;  Given the following input, an error is produced.  It may have something to
+;;  do with the use of internal variables and the method with which they are
+;;  handled (note variable ?y in the 4th assertion)
 ;;
-;;  One can create an infinite recursive sub-structure using
+;;  > (<- (eats lion dog))
+;;  EATS
+;;  > (<- (eats dog cat))
+;;  EATS
+;;  > (<- (eats cat mouse))
+;;  EATS
+;;  > (<- (eats ?x ?z) (eats ?x ?y) (eats ?y ?z))
+;;  EATS
+;;  > (?- (eats lion ?x))
 ;;
-;;    (unify '?x '(a b c ?x))
-;;
-;;  This is beacuse the binding (?x . (a b c ?x)) is created to unify this
-;;  type of structure, we would need a method to represent this infintely
-;;  recursing structure (or a LOT of memory).
-;;
-;;Solutions:
-;;
-;;  Rather than develop an actual solution to the above problem, this type of
-;;  input will be disallowed (if we need infinte structures, we can make them
-;;  later) ARE YOU READY TO LOOK AT V3?!? It's about to get awesome
+;;  *** - Program stack overflow. RESET
 ;;
