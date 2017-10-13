@@ -1,0 +1,16 @@
+*INFER*
+infer (concepts beliefs &key avoidlist)
+  loop for concept in concepts
+    loop for inference from get-matches (concept beliefs)
+      unless analog or forbidden, add inference to beliefs
+      & set new-inference to true
+  if no new-inferences, return beliefs
+  else, call inference again
+
+*GET-MATCHES*
+get-matches (concept beliefs)
+  retrieve from concept:  head
+                          elements
+                          tests
+                          binds
+*line 509*

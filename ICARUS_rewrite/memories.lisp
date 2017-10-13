@@ -28,18 +28,6 @@
 ;;                   ...)
 ;;     )
 ;;
-;;********** My Idea of a concept *********
-;;
-;;    ((tower ^id ?A ?B ^X X ^Y Y)
-;;     :elements  ( )
-;;
-;;    :tests      ( )
-;;
-;;    :binds      ( )
-;;    )
-;;***************************************
-;;
-;;
 ;;   Skills:
 ;;     ((<name> <arguments>)
 ;;      :elements   (<percept or instantiated concept head>
@@ -117,14 +105,14 @@
   )
 
 (defstruct cinstance
-  head id bindings subgoals
+  head id bindings subgoals 
   (degmatch 1.0) (timestamp cycle*) pos-dependencies
   neg-dependencies percepts total-percepts probability
   (time-stamps (cons nil 'NOW)) derived-object)
 
 (defstruct skill
-  head
-  id
+  head				
+  id 
   elements
   tests
   actions

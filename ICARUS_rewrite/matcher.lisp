@@ -1,6 +1,8 @@
-; NEWMATCHER.LISP
-;  written as part of MacGyver project
-;          by Dongkyu Choi
+;;****************************************************************************
+;; MATCHER.LISP
+;;  for ICARUS 2017
+;;  written by Dongkyu Choi
+;;****************************************************************************
 
 ; ORIGINAL FUNCTION HIERARCHY FOR THE STANDARD MATCHER:
 ; (* denotes a lowest-level function.)
@@ -149,14 +151,11 @@
 ;  identity:  making a binding that is the identity relation
 (defun match-bconds (clist elist ematched bindings
 		     &optional (novel nil) (identity nil) (ignore-not-eq nil))
-  ;If concepts list is empty, return list of bindings and matched
   (cond ((null clist) (list (cons bindings ematched)))
 ; ((testp (caar clist))
 ; (match-test (car clist) (cdr clist) elist ematched bindings))
-  ;If there are concept instances which haven't been matched, run the following
 	((not (null elist))
 	 (let (positives negatives results)
-    ;sort the concepts into positive and negative (analyze the first element)
 	   (mapcar #'(lambda (condition)
 		       (cond ((equal (car condition) 'NOT)
 			      (push condition negatives))
@@ -164,23 +163,17 @@
 			      (push condition positives))))
 		   clist)
 	   (setq results
-       ;set (and return after processing) to match-bconds-aux value
 		 (match-bconds-aux positives elist ematched bindings novel
 				   identity ignore-not-eq))
 	   (setq results
-       ;removes matches which violate the negative conditions
 		 (remove-if-not #'(lambda (result)
 				    (none-match negatives elist (car result)))
 				results))
 	   results))))
 
-;Called by match-bcond and match-bconds
 (defun match-bconds-aux (clist elist ematched bindings novel
 			 &optional (identity nil) (ignore-not-eq nil))
-   ;if out of concepts to check, return the bindings added to the front of ematched
   (cond ((null clist) (list (cons bindings ematched)))
-  ;if there are elements left to match, pass first concept into match b-cond and then provide
-  ;the remaining list of concepts
 	((not (null elist))
 	 (match-bcond (car clist) (cdr clist) elist ematched bindings
 		      novel identity ignore-not-eq))))
@@ -197,10 +190,8 @@
 			      &optional (novel nil) (identity nil) (ignore-not-eq nil))
   (let ((ecopy elist)
 	(results nil))
-    ;for each element in elist, until empty,
     (do ((enext (car elist) (car elist)))
 	((null elist) results)
-      ;if not a cinstance, make it one.
       (cond ((cinstance-p enext))
 	    (t
 	     (setq enext (make-cinstance :head
@@ -211,14 +202,11 @@
 					  :values (cdr enext))))))
       (let ((bnext (bmatches condition enext bindings novel identity ignore-not-eq)))
 	(cond ((not (null (car bnext)))
-          ;if there are bmatches still, append a recursive call to match-bconds
-          ;this produces a call again, but this time with new bindings and element matches
 	       (setq results
 		     (append (match-bconds-aux clist ecopy
 					       (cons enext ematched) (cdr bnext)
 					       novel identity ignore-not-eq)
 			     results)))))
-       ;Go and make another call with the next element from elist
       (pop elist))))
 
 ;bmatches is compatible with McGyver changes if clist is in the predicate
@@ -259,17 +247,20 @@
 	       (flag (if (and (numberp degmatch)
 			      (< degmatch 1.0))
 			 degmatch t))
-	       (cargs (append (cdr head) (list start end)))
-	       (eargs (append (cinstance-args-with-attributes elist)
-			      (list (start-time elist) (end-time elist)))))
-;	  (terpri)(princ "cargs: ")(princ cargs)
-;	  (terpri)(princ "eargs: ")(princ eargs)
+	       (cargs (cdr head))
+	       (ctimes (list start end))
+	       (eargs (cinstance-args-with-attributes elist))
+	       (etimes (list (start-time elist) (end-time elist))))
+	  (when dbg-retrieve*
+	    (terpri)(princ "cargs: ")(princ cargs)
+	    (terpri)(princ "eargs: ")(princ eargs)(terpri))
 
 	  (do ((index 0 (1+ index)))
 	      ((or (null flag)
 		   (= index (length cargs)))
 	       (if flag
-		   (cons flag bindings)
+		   (match-time-stamps ctimes etimes bindings
+				      flag novel identity ignore-not-eq)
 		 (cons flag orig-bindings)))
 	    (let ((c (nth index cargs)))
 	      ; if c is an attribute name that starts with ^
@@ -292,11 +283,19 @@
 				(setq found 't))))))
 		    ; if c is not an attribute name
 		    (t
+		     (when dbg-retrieve*
+		       (format t "c: ~A~%e: ~A~%" c (nth index eargs)))
 		     (let ((result
 			    (bmatches-aux c (nth index eargs)
 					  bindings flag novel identity ignore-not-eq)))
 		       (setq flag (car result))
 		       (setq bindings (cdr result)))))))))))))
+
+(defun match-time-stamps (ctimes etimes bindings flag novel identity ignore-not-eq)
+  (let ((result (bmatches-aux (first ctimes) (first etimes) bindings
+			      flag novel identity ignore-not-eq)))
+    (bmatches-aux (second ctimes) (second etimes) (cdr result) (car result)
+		  novel identity ignore-not-eq)))
 
 (defun bmatches-aux (c e bindings flag novel identity)
   (cond
@@ -324,33 +323,101 @@
 
 #| Patch from DHM |#
 (defun bmatches-aux (c e bindings flag novel identity
-		     &optional (ignore-not-eq nil))
+		     &optional ignore-not-eq)
+  (when (or log-exp-equal*)
+    (log-message (list "C: ~A~%E: ~A~%Bindings: ~A~%Bind Constants?: ~A~%" c e bindings ignore-not-eq))
+    ;;(break)
+    )
   (let (b)
     (cond
       ;; if c is a space-filler (null)
       ((null c))
+      ;; if e is a list of predicates
+      ((listp c)
+       (when (or log-exp-equal*)
+	 (log-message (list "C is a list!~%")))
+       (let (unification)
+	 ;; we set bind-constat-to-var to t in unify here
+	 (setq unification (unify c e no-bindings t ignore-not-eq t))
+	 (cond ((null unification)
+		(when (or log-exp-equal*)
+		  (log-message (list "Unification failed on ~A and ~A~%Bindings used: ~A.~%" c e 'no-bindings)))
+		(setq flag nil))
+	       (t
+		(when (or log-exp-equal*)
+		  (log-message (list "Unification SUCCESS on ~A and ~A~%Unified Bindings: ~A.~%Original Bindings: ~A~%" c e unification bindings)))
+		(loop
+		   named add-unified-bindings
+		   for binding in unification
+		   do
+		     (cond ((and identity
+				 (null (assoc (car binding) bindings))
+				 (equal (car binding) (cdr binding)))
+			    (push binding bindings))
+			   ((and (not identity)
+				 (null (assoc (car binding) bindings)))
+			    (push binding bindings))
+
+			   ((not (equal (cdr binding)
+					(cdr (assoc (car binding) bindings))))
+			    (when (or log-exp-equal*)
+			      (log-message (list "Failure on ~A and ~A while adding unified bindings.~%" binding (assoc (car binding) bindings)))
+			      (log-message (list "Identity: ~A~%" identity)))
+			    (setq flag nil))))))))
       ;; if c is a constant
       ((not (variablep c))
+       (when dbg-retrieve*
+	 (format t "C (~A) is a constant!~%" c)
+	 ;;(break)
+	 )
        (let ((temp-binding1 (rassoc e bindings))
 	     (temp-binding2 (assoc c bindings)))
 	 (cond (ignore-not-eq
+		(when dbg-retrieve*
+		  (format t "ignoring not equal.~%"))
+		;; When e is already bound, it better be bound to c
 		(cond (temp-binding1
 		       (when (not (equal (car temp-binding1) c))
-			 (setq flag nil)))
+			   (setq flag nil)))
+		      ;; when c is already bound, it better be bound to e
 		      (temp-binding2
 		       (when (not (equal (cdr temp-binding2) e))
 			 (setq flag nil)))
 		      ((not temp-binding2)
-		       (if novel
-			   (push (cons c e) bindings)))))
+		       (when novel
+			 (if (or (listp e)
+				 (listp c))
+			     (push (cons c (list e)) bindings)
+			     (push (cons c e) bindings))))))
 	       ((not (equal c e))
+		(when dbg-retrieve*
+		  (format t "C (~A) != E (~A)...problemo :'(~%" c e)
+		  ;;(break)
+		  )
 		(setq flag nil))
 	       (t
-		(if novel
-		    (push (cons c e) bindings))))))
+		(when dbg-retrieve*
+		  (format t "C = E. Novel is ~A~%" novel))
+		(when novel
+		  (if (or (listp e)
+			  (listp c))
+		      (push nil bindings)
+		      (push (cons c e) bindings)))
+		(when dbg-retrieve*
+		  (format t "Returning.~%")
+		  ;;(break)
+		  )))))
       ;; if c is a variable and it exists in bindings
       ((setq b (assoc c bindings))
+       (when dbg-retrieve*
+	 (format t "C is a variable and exists in bingings :)~%")
+	 ;;(break)
+	 )
        (cond ((not (equal (cdr b) e))
+	      (when dbg-retrieve*
+		(format t "~A is bound to something other than ~A~%" (car b) e)
+		;;(break)
+		)
 	      (setq flag nil))))
       ;; When IDENTITY is nil, do not add the binding
       ;; if c and e are the same variables.
@@ -359,7 +426,13 @@
       ((and (variablep e)
 	    (equal c e))
        (if identity (push (cons c e) bindings)))
-      (t (push (cons c e) bindings)))
+      (t
+       (when dbg-retrieve*
+	 (format t "C (~A) is not in bindings, so adding (~A . ~A).~%" c c e))
+       (if (or (listp c)
+	       (listp e))
+	   (push (cons c (list e)) bindings)
+	   (push (cons c e) bindings))))
     (cons flag bindings)))
 
 
@@ -452,8 +525,8 @@
 	     inferences))
       (do ((bindings (caar bmatches) (caar bmatches)))
           ((null bmatches) nil)
-        (let ((belief-head (copy-head head)))
-          (cond
+	(let ((belief-head (copy-head head)))
+	  (cond
 	   ;McGyver changes does not work with the fast matcher yet.
 	    ((and (equal inference* 'fast)
 		  (member belief-head inferences
@@ -462,7 +535,11 @@
 	    ((and (null pivot)
 		  (match-tests tests bindings)
 		  (cond ((null negatives) t)
-			(t (none-match negatives beliefs bindings))))
+			(t
+			 ;;(format t "~%TESTING NEGATIVE CONDITIONS OF~%~A~%Negatives: ~A~%Beliefs: ~A~% Bindings: ~A~%" concept negatives beliefs bindings)
+
+			 (none-match negatives beliefs bindings))))
+	     ;;(format t "~%Test passed for~%~A~%on ~A." concept bindings)
 	     (setf (head-id belief-head)
 		   (gensym (concatenate 'string
 					(princ-to-string id)
@@ -587,6 +664,7 @@
 
 ; Now 'pattern' can have (<var> is <obj>) format.
 ;     'element' can be a head structure (for derived objects).
+; OVERWRITTEN BY PMATCHES IN POSTPROCESSOR.LISP
 (defun pmatches (pattern element bindings)
   (let (ptype etype pname eid)
     (cond ((and (equal (second pattern) 'is)
@@ -605,15 +683,15 @@
 					 (head-listform element))))
 	  (t
 	   (setq etype (car element))))
-;    (terpri)(princ "ptype: ")(princ ptype)
-;    (terpri)(princ "pname: ")(princ pname)
-;    (terpri)(princ "pattern: ")(princ pattern)
-;    (terpri)(princ "etype: ")(princ etype)
-;    (terpri)(princ "eid: ")(princ eid)
-;    (terpri)(princ "element: ")(princ element)
+    (terpri)(princ "ptype: ")(princ ptype)
+    (terpri)(princ "pname: ")(princ pname)
+    (terpri)(princ "pattern: ")(princ pattern)
+    (terpri)(princ "etype: ")(princ etype)
+    (terpri)(princ "eid: ")(princ eid)
+    (terpri)(princ "element: ")(princ element)
     ;if the names match
     (cond ((eq ptype etype)
-	   ;remove names
+	   ;remove types
 	   (setq pattern (cdr pattern))
 	   (setq element (cdr element))
 	   (let ((flag t))
@@ -632,14 +710,14 @@
 		       (t
 			(setq variable one-pattern)
 			(setq value (nth i element))))
-;		 (terpri)(princ "variable: ")(princ variable)
-;		 (terpri)(princ "value: ")(princ value)
+		 (terpri)(princ "variable: ")(princ variable)
+		 (terpri)(princ "value: ")(princ value)
 		       ;if the pattern is a variable
 		 (cond ((variablep variable)
 			      ;if the binding already exists
 			(cond ((setq existing
 				     (assoc variable bindings))
-;			       (terpri)(princ "existing binding: ")
+			       (terpri)(princ "existing binding: ")
 ;			       (princ existing)
 			       (if (not (equal (cdr existing) value))
 				   (setq flag nil)))
@@ -655,9 +733,9 @@
 		       ;if the pattern is a constant
 		       (t
 			(cond ((not (equal variable value))
-;			       (terpri)(princ "Not equal constant")
+			       (terpri)(princ "Not equal constant")
 			       (setq flag nil)))))))
-;	     (terpri)(princ "flag: ")(princ flag)
+	     (terpri)(princ "flag: ")(princ flag)
 	     (let ((nbind (assoc pname bindings)))
 	           ;if the pattern name already exists in the bindings
 	       (if nbind
@@ -756,4 +834,4 @@
 		(subst-bindings
 		 (head-bindings head)
 		 (head-listform head))))
-	  cstm))
+cstm))

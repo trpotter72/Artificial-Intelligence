@@ -14,7 +14,7 @@
 ;;             |- GET-NEG-CONDS
 ;;        |- MAKE-CONCEPT
 ;;        |- PRINT-ERROR
-;;
+;; 
 ;; CREATE-SKILLS
 ;;   |- CREATE-SKILL-CLAUSE
 ;;        |- MAKE-SCLAUSE
@@ -104,7 +104,7 @@
 		 (setq id (subseq rest 0 i))
 		 (setq attrval (subseq rest i))
 		 (setq flag t))))))))
-
+    
 (defun attributep (sym-name)
  (cond ((atom sym-name)
 	(cond ((numberp sym-name)
