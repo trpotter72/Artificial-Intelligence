@@ -186,11 +186,11 @@
       (if (funcall predicate tree)
           (adjoin tree found-so-far)
           found-so-far)
-        (unique-find-anywhere-if
-            predicate
-            (first tree)
-            (unique-find-anywhere-if predicate (rest tree)
-                                     found-so-far))))
+      (unique-find-anywhere-if
+          predicate
+          (first tree)
+          (unique-find-anywhere-if predicate (rest tree)
+                                   found-so-far))))
 
 ;;Bugs:
 ;;  Given the following input, an error is produced.  It may have something to
