@@ -1,16 +1,55 @@
 *INFER*
-infer (concepts beliefs &key avoidlist)
-  loop for concept in concepts
-    loop for inference from get-matches (concept beliefs)
-      unless analog or forbidden, add inference to beliefs
-      & set new-inference to true
-  if no new-inferences, return beliefs
-  else, call inference again
+
+  --Pseudo Code--
+
+  infer (concepts beliefs &key avoidlist)
+    loop for concept in concepts
+      loop for inference from get-matches (concept beliefs)
+        unless analog or forbidden, add inference to beliefs
+        & set new-inference to true
+    if no new-inferences, return beliefs
+    else, call inference again
+
+  --Changes from previous version--
+
+  Input no longer requires perceptions parameter (integrated w/ beliefs)
+  Relies on changes to get-matches function (working w/ only beliefs)
+
 
 *GET-MATCHES*
-get-matches (concept beliefs)
-  retrieve from concept:  head
-                          elements
-                          tests
-                          binds
-*line 509*
+
+  --Pseudo Code--
+
+  get-matches (concept beliefs)
+    retrieve from concept:  head
+                            elements
+                            tests
+                            binds
+    generate bmatches using MATCH-BCONDS-AUX
+    loop through each binding from bmatches
+      if fast-matching and inferences haven't changed, return to next bindings set
+      otherwise, match tests to bindings,
+                 set belief-id
+                 deal with (var 'is formula) type binds,
+                 remove unnecessary bindings from the bindings list
+                 generate a cinstance using belief-head, id, and bindings
+                  (more if fast-matching)
+                 if there is a pivot, check for negatives
+                 generate degmatch and push the partial match out if about threshold
+
+
+  --Changes from previous version
+
+  Concepts have been simplified, structure is now:
+    head
+    elements
+    tests
+    binds (was attributes)
+  Removed loop which previously would create a new set of bmatches for each
+  pmatch (this was because we are no longer using percepts), bmatches is now
+  instantiated in (let*).  To accommodate for the top level loop returning the
+  inferences, this has been implemented in the new loop which iterates through
+  bmatches (line 503)
+  Testing for negatives was done starting on line 517, this has been disabled
+  *IMPORTANT: wasn't sure how to deal with (get-all-percepts (first inferences))
+              call on line 571. It is only a factor if using the fast matcher.
