@@ -93,41 +93,34 @@
 
 ; Need improved version of INFER that makes multiple passes.
 (defun infer (concepts beliefs &key avoidlist)
- (let ((new-inference nil)
-       (ccopy concepts))
-   (do ((concept (car concepts) (car concepts)))
-       ((null concepts)
-        (cond ((null new-inference) beliefs)
-              (t
+ (loop for concept in concepts
+   with new-inference = nil
+   and ccopy = concepts
+   do (prog ((inferences (get-matches concept beliefs)))
+        ;     (cond ((equal (concept-id concept) (concept-id (car (last cltm*))))
+        ;	    (terpri)(princ "Inferred: ")(princ inferences)))
+       loop for inference in inferences
+        ;initially ((terpri)(princ "Inferring concept: ")
+        ;     (princ (head-name (concept-head concept)))(princ " ")
+        ;     (princ (concept-id concept))
+        ;     (cond ((equal (concept-id concept) (concept-id (car (last cltm*))))
+        ;	    (terpri)(princ "Infering with: ")(princ perceptions)
+        ;	    (terpri)(princ "Infering with: ")(princ beliefs))))
+       do (prog ((analog (member inference beliefs :test 'same-cinstance))
+                  (forbidden (member inference avoidlist :test #'same-meaning)))
+                 (cond ((and (null analog) (null forbidden))
+                        (setq new-inference t)
+                        (push inference beliefs))
+                       (t nil))))
+      finally (cond ((null new-inference) beliefs)
+                     (t
 ;	       (terpri)(princ "Inferred so far: ")
 ;	       (princ (mapcar #'(lambda (oneinst)
 ;				  (subst-bindings
 ;				   (head-bindings (cinstance-head oneinst))
 ;				   (head-listform
 ;				    (cinstance-head oneinst)))) beliefs))
-	       (infer ccopy beliefs :avoidlist avoidlist))))
-;     (terpri)(princ "Inferring concept: ")
-;     (princ (head-name (concept-head concept)))(princ " ")
-;     (princ (concept-id concept))
-;     (cond ((equal (concept-id concept) (concept-id (car (last cltm*))))
-;	    (terpri)(princ "Infering with: ")(princ perceptions)
-;	    (terpri)(princ "Infering with: ")(princ beliefs)))
-     (let ((inferences (get-matches concept beliefs)))
-;       (cond ((equal (concept-id concept) (concept-id (car (last cltm*))))
-;	      (terpri)(princ "Inferred: ")(princ inferences)))
-         (do ((inference (car inferences) (car inferences)))
-             ((null inferences) nil)
-;TLP_EXP
-             (let ((analog (member inference beliefs :test 'same-cinstance))
-		   (forbidden (member inference avoidlist :test #'same-meaning)))
-
-               (cond ((and (null analog) (null forbidden))
-		      ;; inference hasn't produced an analog for the belief, and it isn't on the avoid list
-                      (setq new-inference t)
-                      (push inference beliefs))
-                     (t nil)))
-             (pop inferences)))
-       (pop concepts))))
+                      (infer ccopy beliefs :avoidlist avoidlist)))))
 
 ; MATCH-BCONDS finds all matches between the Boolean conditions in CLIST
 ; and the Boolean elements in ELIST, with EMATCHED and BINDINGS holding
@@ -436,49 +429,48 @@
    ; if concept names do match
      (t
       (let* ((degmatch (cinstance-degmatch elist))
-	     (flag (if (and (numberp degmatch)
-			    (< degmatch 1.0))
-		       degmatch t))
-	     (cargs (append (head-values head) (list start end)))
-	     (eargs (append (cinstance-args elist)
-			    (list (start-time elist) (end-time elist)))))
-	  (do ((index 0 (1+ index)))
-	      ((or (null flag)
-		   (= index (length cargs)))
-	       (if flag
-		   (cons flag bindings)
-		 (cons flag orig-bindings)))
-	    (let ((c (nth index cargs)))
-	      ; if c is an attribute name that starts with ^
-	      (cond ((attributep c)
-		     (let (found)
-		       (do ((i 0 (1+ i)))
-			   ((or found
-				(= i (length eargs)))
-			    (if (null found)
-				(setq flag nil)))
-			 (cond ((equal (nth i eargs) c)
-				(setq index (1+ index))
-				(setq c (nth index cargs))
-				(let ((result
-				       (bmatches-aux c (nth (1+ i) eargs)
-						     bindings flag
-						     novel identity ignore-not-eq)))
-				  (setq flag (car result))
-				  (setq bindings (cdr result)))
-				(setq found 't))))))
-		    ; if c is not an attribute name
-		    (t
-		     (let ((result
-			    (bmatches-aux c (nth index eargs)
-					  bindings flag novel identity ignore-not-eq)))
-		       (setq flag (car result))
-		       (setq bindings (cdr result))))))))))))
+             (flag (if (and (numberp degmatch)
+                        (< degmatch 1.0))
+                    degmatch t))
+             (cargs (append (head-values head) (list start end)))
+             (eargs (append (cinstance-args elist)
+                     (list (start-time elist) (end-time elist)))))
+       (do ((index 0 (1+ index)))
+           ((or (null flag)
+             (= index (length cargs)))
+            (if flag
+             (cons flag bindings)
+             (cons flag orig-bindings)))
+          (let ((c (nth index cargs)))
+             ; if c is an attribute name that starts with ^
+             (cond ((attributep c)
+                    (let (found)
+                        (do ((i 0 (1+ i)))
+                         ((or found
+                           (= i (length eargs)))
+                          (if (null found)
+                           (setq flag nil)))
+                         (cond ((equal (nth i eargs) c)
+                                (setq index (1+ index))
+                                (setq c (nth index cargs))
+                                (let ((result
+                                           (bmatches-aux c (nth (1+ i) eargs)
+                                                 bindings flag
+                                                 novel identity ignore-not-eq)))
+                                     (setq flag (car result))
+                                     (setq bindings (cdr result)))
+                                (setq found 't))))))
+                                    ; if c is not an attribute name
+              (t
+                 (let ((result
+                        (bmatches-aux c (nth index eargs)
+                             bindings flag novel identity ignore-not-eq)))
+                     (setq flag (car result))
+                     (setq bindings (cdr result))))))))))))
 
 ;TLP_EXP
 ; GET-MATCHES that uses CINSTANCE structures with DEGMATCH attributes
 (defun get-matches (concept beliefs)
-  (let* ((head (concept-head concept))
 ; removing the changes for revision 170 - see the svn log for revision 213
 ;	 (head-bindings (remove-if
 ;			 #'null
@@ -487,118 +479,118 @@
 ;			      (let ((head-matches (bmatches head belief nil)))
 ;				(if (car head-matches) (cdr head-matches))))
 ;			  beliefs)))
-   (id (concept-id concept))
-   (elements (concept-elements concept))
-   ;;(positives (concept-positives concept))
-	 ;;(negatives (concept-negatives concept))
-	 (tests (concept-tests concept))
-	 (binds (concept-binds concept))
-;	 (pivot (concept-pivot concept))
-;	 (threshold (concept-threshold concept))
-	 pivot
-	 threshold
-;  (inferences (if (equal inference* 'fast) (concept-instances concept)))
-   (bmatches (match-bconds positives beliefs nil nil)))
-    ;(show "PMATCHES: " pmatches debug*)
-      (do ((bindings (caar bmatches) (caar bmatches)))
-          ((null bmatches)
-          (if (equal inference* 'fast)
-       	     (setf (concept-instances concept) inferences)
-       	     inferences)
-	(let ((belief-head (copy-head head)))
-	  (cond
-	   ;McGyver changes does not work with the fast matcher yet.
-	    ((and (equal inference* 'fast)
-		  (member belief-head inferences
-			  :key #'cinstance-head :test #'equal))
-	     t)
-	    ((and (null pivot)
-		  (match-tests tests bindings)
 
-      ;;USED TO TEST NEGATIVES
-      ;;(cond ((null negatives) t)
-			;;(t
-			;; ;;(format t "~%TESTING NEGATIVE CONDITIONS OF~%~A~%Negatives: ~A~%Beliefs: ~A~% Bindings: ~A~%" concept negatives beliefs bindings)
+  (loop ;list of internal variables
+        with head = (concept-head concept)
+        and id = (concept-id concept)
+        and elements = (concept-elements concept)
+        and tests = (concept-tests concepts)
+        and binds = (concept-binds concept)
+        and pivot = nil
+        and threshold = nil
+        and inferences = (if (equal inference* 'fast) (concept-instances concept))
+        ;for is called down here so that elements is initilized
+        for bindings in (match-bconds elements beliefs nil nil)
+        do (prog ((belief-head (copy-head head)))
+             (cond
+               ;McGyver changes does not work with the fast matcher yet.
+                ((and (equal inference* 'fast)
+                  (member belief-head inferences
+                      :key #'cinstance-head :test #'equal))
+                 t)
+                ((and (null pivot)
+                  (match-tests tests bindings)
 
-			 ;;(none-match negatives beliefs bindings))))
-	    ;;(format t "~%Test passed for~%~A~%on ~A." concept bindings)
-	     (setf (head-id belief-head)
-		   (gensym (concatenate 'string
-					(princ-to-string id)
-					"-")))
-;	     (terpri)(princ "bindings before: ")(princ bindings)
-	     (when binds
-	       ;(terpri)(princ "bindings before: ")(princ bindings)
-	       ;Process :binds field to get new bindings
-	       ; for derived objects
-	       (dolist (oneattr binds)
-		 (let ((variable (car oneattr))
-		       (verb (cadr oneattr))
-		       (formula (caddr oneattr)))
-		   (when (equal verb 'is)
-		     (push (cons variable (eval (subst-bindings bindings
-								formula)))
-			   bindings)))))
-;when 'is' statements are not encapsulated with parentheses
-;	       (do ((i 0 (+ i 3)))
-;		   ((> i (length binds)))
-;		 (let ((variable (nth i binds))
-;		       (verb (nth (1+ i) binds))
-;		       (formula (nth (+ i 2) binds)))
-;		   (when (equal verb 'is)
-;		     (push (cons variable (eval (subst-bindings bindings
-;								formula)))
-;			   bindings)))))
-;	     (terpri)(princ "bindings after: ")(princ bindings)
-	     (setf (head-bindings belief-head)
-		   (remove-if-not #'(lambda (binding)
-				      (member (car binding)
-					      (head-values belief-head)
-					      :test 'equal))
-				  bindings))
-	     (cond ((equal inference* 'fast)
-		    (push (make-cinstance
-			   :head belief-head
-			   :id id
-			   :bindings bindings
-			   :derived-object (not (null binds))
-			   :pos-dependencies
-			   (get-pos-sub-heads concept bindings)
-			   :neg-dependencies
-			   (get-neg-sub-heads concept bindings))
-			  inferences)
-		    (get-all-percepts (first inferences)))
-		   (t
-		    (push (make-cinstance
-			   :head belief-head
-			   :id id
-			   :bindings bindings
-			   :derived-object (not (null binds)))
+                    ;;USED TO TEST NEGATIVES
+                    ;;(cond ((null negatives) t)
+                    ;;(t
+                    ;;(format t "~%TESTING NEGATIVE CONDITIONS OF~%~A~%Negatives: ~A~%Beliefs: ~A~% Bindings: ~A~%" concept negatives beliefs bindings)
+
+                    ;;(none-match negatives beliefs bindings))))
+                    ;;(format t "~%Test passed for~%~A~%on ~A." concept bindings)
+                  (setf (head-id belief-head)
+                   (gensym (concatenate 'string
+                            (princ-to-string id)
+                            "-")))
+                  ;(terpri)(princ "bindings before: ")(princ bindings)
+                  (when binds
+                     ;(terpri)(princ "bindings before: ")(princ bindings)
+                     ;Process :binds field to get new bindings
+                     ; for derived objects
+                     (dolist (oneattr binds)
+                      (let ((variable (car oneattr))
+                            (verb (cadr oneattr))
+                            (formula (caddr oneattr)))
+                          (when (equal verb 'is)
+                              (push (cons variable (eval (subst-bindings bindings
+                                                          formula)))
+                                bindings)))))
+                  ;when 'is' statements are not encapsulated with parentheses
+                  ;	       (do ((i 0 (+ i 3)))
+                  ;		   ((> i (length binds)))
+                  ;		 (let ((variable (nth i binds))
+                  ;		       (verb (nth (1+ i) binds))
+                  ;		       (formula (nth (+ i 2) binds)))
+                  ;		   (when (equal verb 'is)
+                  ;		     (push (cons variable (eval (subst-bindings bindings
+                  ;								formula)))
+                  ;			   bindings)))))
+                  ;	     (terpri)(princ "bindings after: ")(princ bindings)
+                  (setf (head-bindings belief-head)
+                   (remove-if-not #'(lambda (binding)
+                                     (member (car binding)
+                                           (head-values belief-head)
+                                           :test 'equal))
+                        bindings))
+                  (cond ((equal inference* 'fast)
+                         (push (make-cinstance
+                                :head belief-head
+                                :id id
+                                :bindings bindings
+                                :derived-object (not (null binds))
+                                :pos-dependencies
+                                (get-pos-sub-heads concept bindings)
+                                :neg-dependencies
+                                (get-neg-sub-heads concept bindings))
+                           inferences)
+                         (get-all-percepts (first inferences)))
+                   (t
+                      (push (make-cinstance
+                             :head belief-head
+                             :id id
+                             :bindings bindings
+                             :derived-object (not (null binds)))
 ;			   :time-stamps (cons cycle* 'NOW))
-			  inferences))))
-	    ;McGyver changes does not work with pivots yet.
-	    ((and pivot
-		        (cond ((null negatives) t)
-			            (t (none-match negatives beliefs bindings))))
-	     (let ((degmatch (match-partial-tests tests bindings pivot))
-		         (ihead (subst-bindings bindings head))
-		         (args (instantiate-args (cdr head) bindings)))
-	       (unless (or (not (numberp degmatch))
-			               (and (numberp (car threshold))
-			   ; for now assume degmatch is not a list
-			   ; and threshold is a list. This will change soon.
-				                  (< (abs degmatch) (car threshold))))
+                        inferences)))))
+                    ;McGyver changes does not work with pivots yet.
+                 ((and pivot
+                        (cond ((null negatives) t)
+                              (t (none-match negatives beliefs bindings))))
+                  (let ((degmatch (match-partial-tests tests bindings pivot))
+                        (ihead (subst-bindings bindings head))
+                        (args (instantiate-args (cdr head) bindings)))
+                     (unless (or (not (numberp degmatch))
+                                 (and (numberp (car threshold))
+                      ; for now assume degmatch is not a list
+                      ; and threshold is a list. This will change soon.
+                                      (< (abs degmatch) (car threshold))))
 ;		       (terpri)(princ "DEGMATCH: ")(princ degmatch)
 ;		       (princ "THRESHOLD: ")(princ (car threshold))
-		 (push (make-cinstance
-			:head ihead
-			:id (gensym (concatenate 'string
-						 (princ-to-string id)
-						 "-"))
-			:degmatch degmatch
-			:bindings bindings)
-		       inferences))))))
-        (pop bmatches))))
+                      (push (make-cinstance
+                             :head ihead
+                             :id (gensym (concatenate 'string
+                                          (princ-to-string id)
+                                          "-"))
+                             :degmatch degmatch
+                             :bindings bindings)
+                            inferences))))))
+
+        ;Finally statements run once the loop has completed
+        finally (if (equal inference* 'fast)
+                 (setf (concept-instances concept) inferences)
+                 inferences)))
+
+
 
 ; MATCH-PCONDS finds all matches between the perceptual conditions in CLIST
 ; and the Boolean perceptual in ELIST, with EMATCHED and BINDINGS holding
@@ -790,28 +782,28 @@
    ;If concept names match, proceed with arguments.
    (t
     (let ((flag t)
-	  (cargs (cdr clist))
-	  (eargs (cinstance-args elist)))
+          (cargs (cdr clist))
+          (eargs (cinstance-args elist)))
       (do ((c (car cargs) (car cargs))
-	   (e (car eargs) (car eargs))
-	   (b nil nil))
-	  ((or (null flag) (null cargs))
-	   (cons flag bindings))
-	  (cond ((not (variablep c))
-		 (cond ((not (equal c e))(setq flag nil))))
-		((setq b (assoc c bindings))
-		 (cond ((not (equal (cdr b) e))
-			(setq flag nil))))
-		((rassoc e bindings)
-		 (setq flag nil))
-		(t (push (cons c e) bindings)))
-	  (pop cargs)
-	  (pop eargs))))))
+           (e (car eargs) (car eargs))
+           (b nil nil))
+       ((or (null flag) (null cargs))
+        (cons flag bindings))
+       (cond ((not (variablep c))
+              (cond ((not (equal c e))(setq flag nil))))
+        ((setq b (assoc c bindings))
+         (cond ((not (equal (cdr b) e))
+                (setq flag nil))))
+        ((rassoc e bindings)
+         (setq flag nil))
+        (t (push (cons c e) bindings)))
+       (pop cargs)
+       (pop eargs))))))
 
 (defun print-cstm (&optional (cstm cstm*))
   (mapcar #'(lambda (inst)
-	      (let ((head (cinstance-head inst)))
-		(subst-bindings
-		 (head-bindings head)
-		 (head-listform head))))
-cstm))
+             (let ((head (cinstance-head inst)))
+              (subst-bindings
+                 (head-bindings head)
+                 (head-listform head))))
+   cstm))

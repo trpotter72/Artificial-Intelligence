@@ -25,7 +25,7 @@
                             elements
                             tests
                             binds
-    generate bmatches using MATCH-BCONDS-AUX
+    generate bmatches using MATCH-BCONDS (instead of positives, this takes elements)
     loop through each binding from bmatches
       if fast-matching and inferences haven't changed, return to next bindings set
       otherwise, match tests to bindings,
