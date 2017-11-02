@@ -46,27 +46,24 @@
        (pop concepts))))
 
 (defun post-process-concepts ()
-  (setq cltm* (reverse cltm*))
-  (format t "~%CLTM* original: ~%~S~%~%" cltm*)
+  "Takes the current cltm* and sorts it such that a concept will always appear
+  after its dependencies (taken from the elements list"
   (let ((sorted_list nil))
-  ;; TO DO: sort by dependency
    (loop while (not (null cltm*))
-
-      do (prog* (
-                 (candidate (pop cltm*))
-                 (ready-to-add t)
-                 (dependencies (get-dependencies candidate)))
-               (format t "~%Current candidate:~%~S~%" candidate)
-               (format t "~%Current cltm*:~%~S~%" cltm*)
-               (format t "~%Current sorted_list:~%~S~%" sorted_list)
-               (loop for dependency in dependencies
-                  do(if (member-if (lambda (x) (eq dependency (concept-head x))
-                                               dependency cltm*) cltm*)
-                        (setq ready-to-add nil))
-                 finally (if ready-to-add
-                          (setq sorted_list (append sorted_list (list candidate)))
-                          (setq cltm* (append cltm* (list candidate))))))
-          finally (setq cltm* sorted_list))))
+      do (loop with candidate = (pop cltm*)  ;Attempt to add the first concept
+          and ready-to-add = t
+          with dependencies = (get-dependencies candidate)
+          for dependency in dependencies
+          do(if (member-if (lambda (x) (eq dependency (car (concept-head x))))
+                           cltm*) ;check if the concept has dependencies still
+                                  ;in the cltm*
+                (setq ready-to-add nil))
+          finally (if ready-to-add
+                    ;Either add the concept to the back of the sorted_list or
+                    ;the cltm*
+                    (setq sorted_list (append sorted_list (list candidate)))
+                    (setq cltm* (append cltm* (list candidate)))))
+    finally (setq cltm* sorted_list))))
 
 (defun get-dependencies (concept)
   "Given a concept definition, return the names of concepts it depends upon"

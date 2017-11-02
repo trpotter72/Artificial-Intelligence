@@ -6,6 +6,10 @@
 (create-concepts
 
  ;;primitive concepts
+
+
+
+
  ((on ^id ?o1 ?o2 ^height ?height)
   :elements ((block ^id ?o1 ^x ?x1 ^y ?y1 ^len ?len1 ^height ?height1)
 	     (block ^id ?o2 ^x ?x2 ^y ?y2 ^len ?len2 ^height ?height2))
@@ -26,9 +30,9 @@
 	  (>= ?height2 ?height1)
 	  (not (eq 'yes ?closed))))
 
- ((clear ^id ?block)
-  :elements ((block ^id ?block)
-	     (not (on ?another ?block))))
+	((clear ^id ?block)
+	 :elements ((block ^id ?block)
+			 (not (on ?another ?block))))
 
  ;;Assume the length of any block is not greater than ?len
  ((occupied-area ^id ?sx)
