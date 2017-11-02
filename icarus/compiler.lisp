@@ -47,20 +47,26 @@
 
 (defun post-process-concepts ()
   (setq cltm* (reverse cltm*))
-
+  (format t "~%CLTM* original: ~%~S~%~%" cltm*)
+  (let ((sorted_list nil))
   ;; TO DO: sort by dependency
-  (loop while (not (null cltm*))
-     with sorted_list = (list)
-     do(prog* (
-               (candidate (pop cltm*))
-               (ready-to-add t)
-               (dependencies (get-dependencies candidate)))
-              (loop for dependency in dependencies
-                 do(if (member-if (lambda (x) (eq dependency (concept-head x)
-                                                dependency cltm*)) cltm*)
-                       (setq ready-to-add nil))
-                finally (append (if ready-to-add sorted_list cltm*) (list candidate))))
-    finally (setq cltm* sorted_list)))
+   (loop while (not (null cltm*))
+
+      do (prog* (
+                 (candidate (pop cltm*))
+                 (ready-to-add t)
+                 (dependencies (get-dependencies candidate)))
+               (format t "~%Current candidate:~%~S~%" candidate)
+               (format t "~%Current cltm*:~%~S~%" cltm*)
+               (format t "~%Current sorted_list:~%~S~%" sorted_list)
+               (loop for dependency in dependencies
+                  do(if (member-if (lambda (x) (eq dependency (concept-head x))
+                                               dependency cltm*) cltm*)
+                        (setq ready-to-add nil))
+                 finally (if ready-to-add
+                          (setq sorted_list (append sorted_list (list candidate)))
+                          (setq cltm* (append cltm* (list candidate))))))
+          finally (setq cltm* sorted_list))))
 
 (defun get-dependencies (concept)
   "Given a concept definition, return the names of concepts it depends upon"
